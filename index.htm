@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Percentage of Individuals Using the Internet | World101</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<script src="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js"></script>
+<link href="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/jquery-1.12.4.js"></script> 
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+}
+#map {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+}
+#slider {
+    position: absolute;
+    bottom: 40px;
+    right: 400px;
+    left: 40px;
+}
+#year {
+    font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+    color: rgba(0,0,0,.75);
+    font-weight: 700;
+    font-size: 27px;
+    position: absolute;
+    bottom: 80px;
+    left: 40px;
+}
+.legend {
+    line-height: 18px;
+    color: #555;
+}
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="slider"></div>
+<div id="year"></div>
+<div id="legend" style="display:none;">
+  <h4>Individuals using the Internet<br />
+    (% of population)</h4>
+  <nav class="legend"> <i style="background:#EDF8FB"></i> 0&ndash;20<br />
+    <i style="background:#B2E2E2"></i> 20&ndash;40<br />
+    <i style="background:#66C2A4"></i> 40&ndash;60<br />
+    <i style="background:#2CA25F"></i> 60&ndash;80<br />
+    <i style="background:#006D2C"></i> 80+<br />
+  </nav>
+</div>
+<script type="text/javascript" src="countries.js"></script> 
+<script>
+	
+var min = 2000;
+var max = 2019;
+
+L.mapbox.accessToken = "pk.eyJ1Ijoid2VibWFzdGVyY2ZyIiwiYSI6ImNsT2lZNU0ifQ.uufuabBAFtq7dOpW0Lzd5w";
+
+var mapboxTiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "Imagery &copy; <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap contributors</a>, Boundaries &copy; <a href='https://www.naturalearthdata.com/' target='_blank'>Natural Earth</a>, Data &copy; <a href='https://data.worldbank.org/indicator/IT.NET.USER.ZS' target='_blank'>World Bank</a>"
+});
+
+var map = L.map("map")
+  .addLayer(mapboxTiles)
+  .setView([0, 0], 2);
+
+var countriesLayer = L.mapbox.featureLayer().addTo(map);
+
+L.mapbox.legendControl({
+  position: "bottomright"
+}).addLegend(document.getElementById("legend").innerHTML).addTo(map);
+
+window.onload = loadData(max);
+
+$(function () {
+  $("#slider").slider({
+    range: false,
+    min: min,
+    max: max,
+    value: max,
+    slide: function (event, ui) {
+      changeYear(ui.value);
+    },
+    stop: function (event, ui) {
+      loadData(ui.value);
+    }
+  });
+  changeYear(max);
+});
+
+function loadData(year) {
+  var url = "https://api.worldbank.org/v2/country/all/indicator/IT.NET.USER.ZS?format=json&date=" + year + "&per_page=300"
+  $.getJSON(url)
+    .done(function (data) {
+      joinData(data[1], year);
+    });
+}
+
+function joinData(data, year) {
+  var dataHash = data.reduce(function (hash, item) {
+    if (item.countryiso3code) {
+      hash[item.countryiso3code] = (item.value == null) ? "No data available" : item.value.toFixed(2)
+    }
+    return hash
+  }, {});
+  console.log(dataHash);
+  countriesData.features.forEach(function (item) {
+    item.properties.value = (dataHash[item.properties.iso_a3] == null) ? "No data available" : dataHash[item.properties.iso_a3]
+  });
+  countriesLayer.setGeoJSON(countriesData);
+  countriesLayer.eachLayer(function (layer) {
+    var content = "<h4>Country</h4><p>" + layer.feature.properties.name_en + "</p><h4>Year</h4><p>" + year + "</p><h4>Individuals using the Internet (% of population)</h4><p>" + layer.feature.properties.value + "</p>";
+    layer.bindPopup(content);
+    layer.setStyle({
+      fillColor: getColor(layer.feature.properties.value),
+      fillOpacity: 0.7,
+      weight: 1,
+      opacity: 1,
+      color: "white"
+    });
+  });
+}
+
+function changeYear(year) {
+  $("#year").html("Year: " + year)
+}
+
+function getColor(d) {
+  return d > 80 ? "#006D2C"
+    : d > 60 ? "#2CA25F"
+    : d > 40 ? "#66C2A4"
+    : d > 20 ? "#B2E2E2"
+    : d >= 0 ? "#EDF8FB"
+    : "#9BAAAA";
+}
+
+</script>
+</body>
+</html>
